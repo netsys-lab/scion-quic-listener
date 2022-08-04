@@ -109,6 +109,15 @@ func ListenIPPort(addr netaddr.IPPort) (net.Listener, error) {
 	return ListenQUIC(context.Background(), addr, nil, ServerTLSDummyCfg, nil)
 }
 
+// ListenString returns a SCION QUIC listener struct that implements net.Listener
+func ListenString(addr string) (net.Listener, error) {
+	naddr, err := netaddr.ParseIPPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	return ListenIPPort(naddr)
+}
+
 // DialQUIC returns a SCION QUIC connection that implements net.Conn
 func DialQUIC(ctx context.Context, local netaddr.IPPort, remote pan.UDPAddr, policy pan.Policy, selector pan.Selector, host string, tlsConf *tls.Config, quicConf *quic.Config) (net.Conn, error) {
 	conn, err := pan.DialQUIC(ctx, local, remote, policy, selector, host, tlsConf, quicConf)

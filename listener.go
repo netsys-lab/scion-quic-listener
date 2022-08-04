@@ -13,40 +13,60 @@ import (
 	"time"
 )
 
+var (
+	ServerTLSDummyCfg = &tls.Config{
+		Certificates: quicutil.MustGenerateSelfSignedCert(),
+		NextProtos:   []string{"hello-quic"},
+	}
+	ClientTLSDummyCfg = &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"hello-quic"},
+	}
+)
+
+// Conn implements net.Conn
 type Conn struct {
 	quic.Session
 	quic.Stream
 }
 
+// Read implements net.Conn.Read
 func (q *Conn) Read(b []byte) (int, error) {
 	return q.Stream.Read(b)
 }
 
+// Write required to implement net.Conn
 func (q *Conn) Write(b []byte) (int, error) {
 	return q.Stream.Write(b)
 }
 
+// Close required to implement net.Conn
 func (q *Conn) Close() error {
 	return q.Stream.Close()
 }
 
+// LocalAddr required to implement net.Conn
 func (q *Conn) LocalAddr() net.Addr {
 	return q.Session.LocalAddr()
 }
 
+// RemoteAddr required to implement net.Conn
 func (q *Conn) RemoteAddr() net.Addr {
 	return q.Session.RemoteAddr()
 }
 
+// SetDeadline required to implement net.Conn
 func (q *Conn) SetDeadline(t time.Time) error {
 	return q.Stream.SetDeadline(t)
 }
 
+// SetReadDeadline required to implement net.Conn
 func (q *Conn) SetReadDeadline(t time.Time) error {
 	return q.Stream.SetReadDeadline(t)
 
 }
 
+// SetWriteDeadline required to implement net.Conn
 func (q *Conn) SetWriteDeadline(t time.Time) error {
 	return q.Stream.SetWriteDeadline(t)
 }
@@ -70,6 +90,7 @@ func (q *quicListener) Accept() (net.Conn, error) {
 	return &qconn, nil
 }
 
+// ListenQUIC returns a SCION QUIC listener struct that implements net.Listener
 func ListenQUIC(ctx context.Context, addr netaddr.IPPort, selector pan.ReplySelector, tlsCfg *tls.Config, qconf *quic.Config) (net.Listener, error) {
 	session, err := pan.ListenQUIC(context.Background(), addr, selector, tlsCfg, qconf)
 	if err != nil {
@@ -78,19 +99,17 @@ func ListenQUIC(ctx context.Context, addr netaddr.IPPort, selector pan.ReplySele
 	return &quicListener{session}, nil
 }
 
-// Listen implements caddy.TCPServer interface.
+// ListenPort returns a SCION QUIC listener struct that implements net.Listener
 func ListenPort(port uint16) (net.Listener, error) {
 	return ListenIPPort(netaddr.IPPortFrom(netaddr.IPFrom4([4]byte{127, 0, 0, 1}), port))
 }
 
+// ListenIPPort returns a SCION QUIC listener struct that implements net.Listener
 func ListenIPPort(addr netaddr.IPPort) (net.Listener, error) {
-	tlsCfg := &tls.Config{
-		Certificates: quicutil.MustGenerateSelfSignedCert(),
-		NextProtos:   []string{"hello-quic"},
-	}
-	return ListenQUIC(context.Background(), addr, nil, tlsCfg, nil)
+	return ListenQUIC(context.Background(), addr, nil, ServerTLSDummyCfg, nil)
 }
 
+// DialQUIC returns a SCION QUIC connection that implements net.Conn
 func DialQUIC(ctx context.Context, local netaddr.IPPort, remote pan.UDPAddr, policy pan.Policy, selector pan.Selector, host string, tlsConf *tls.Config, quicConf *quic.Config) (net.Conn, error) {
 	conn, err := pan.DialQUIC(ctx, local, remote, policy, selector, host, tlsConf, quicConf)
 	if err != nil {
@@ -102,4 +121,18 @@ func DialQUIC(ctx context.Context, local netaddr.IPPort, remote pan.UDPAddr, pol
 	}
 	return &Conn{conn, stream}, nil
 
+}
+
+// DialAddr returns a SCION QUIC connection that implements net.Conn
+func DialAddr(remote pan.UDPAddr) (net.Conn, error) {
+	return DialQUIC(context.Background(), netaddr.IPPort{}, remote, nil, nil, "", ClientTLSDummyCfg, nil)
+}
+
+// DialString returns a SCION QUIC connection that implements net.Conn
+func DialString(remote string) (net.Conn, error) {
+	addr, err := pan.ParseUDPAddr(remote)
+	if err != nil {
+		return nil, err
+	}
+	return DialAddr(addr)
 }

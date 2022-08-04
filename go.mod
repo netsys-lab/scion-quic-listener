@@ -1,4 +1,4 @@
-module github.com/netsys-lab/scion-quic-listener
+module github.com/netsys-lab/sqnet
 
 go 1.17
 

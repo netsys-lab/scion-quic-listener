@@ -1,4 +1,4 @@
-package scionquic
+package sqnet
 
 import (
 	"crypto/tls"

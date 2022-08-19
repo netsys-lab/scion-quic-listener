@@ -101,7 +101,7 @@ func ListenQUIC(ctx context.Context, addr netaddr.IPPort, selector pan.ReplySele
 
 // ListenPort returns a SCION QUIC listener struct that implements net.Listener
 func ListenPort(port uint16) (net.Listener, error) {
-	return ListenIPPort(netaddr.IPPortFrom(netaddr.IPFrom4([4]byte{127, 0, 0, 1}), port))
+	return ListenIPPort(netaddr.IPPortFrom(netaddr.IPFrom4([4]byte{0, 0, 0, 0}), port))
 }
 
 // ListenIPPort returns a SCION QUIC listener struct that implements net.Listener
@@ -111,6 +111,10 @@ func ListenIPPort(addr netaddr.IPPort) (net.Listener, error) {
 
 // ListenString returns a SCION QUIC listener struct that implements net.Listener
 func ListenString(addr string) (net.Listener, error) {
+	//netaddr.ParseIPPort doesn't properly deal with port-only addresses
+	if len(addr) > 0 && addr[0] == ':' {
+		addr = "0.0.0.0" + addr
+	}
 	naddr, err := netaddr.ParseIPPort(addr)
 	if err != nil {
 		return nil, err
@@ -132,16 +136,26 @@ func DialQUIC(ctx context.Context, local netaddr.IPPort, remote pan.UDPAddr, pol
 
 }
 
-// DialAddr returns a SCION QUIC connection that implements net.Conn
-func DialAddr(remote pan.UDPAddr) (net.Conn, error) {
-	return DialQUIC(context.Background(), netaddr.IPPort{}, remote, nil, nil, "", ClientTLSDummyCfg, nil)
+// DialContextAddr returns a SCION QUIC connection that implements net.Conn
+func DialContextAddr(ctx context.Context, remote pan.UDPAddr) (net.Conn, error) {
+	return DialQUIC(ctx, netaddr.IPPort{}, remote, nil, nil, "", ClientTLSDummyCfg, nil)
 }
 
-// DialString returns a SCION QUIC connection that implements net.Conn
-func DialString(remote string) (net.Conn, error) {
+// DialAddr returns a SCION QUIC connection that implements net.Conn
+func DialAddr(remote pan.UDPAddr) (net.Conn, error) {
+	return DialContextAddr(context.Background(), remote)
+}
+
+// DialContextString returns a SCION QUIC connection that implements net.Conn
+func DialContextString(ctx context.Context, remote string) (net.Conn, error) {
 	addr, err := pan.ParseUDPAddr(remote)
 	if err != nil {
 		return nil, err
 	}
-	return DialAddr(addr)
+	return DialContextAddr(ctx, addr)
+}
+
+// DialString returns a SCION QUIC connection that implements net.Conn
+func DialString(remote string) (net.Conn, error) {
+	return DialContextString(context.Background(), remote)
 }
